@@ -7,51 +7,72 @@ require('dotenv').config();
 
 const app = express();
 
-// ================= MIDDLEWARE =================
+/* ================= MIDDLEWARE ================= */
 app.use(cors());
 app.use(bodyParser.json());
+app.use(bodyParser.urlencoded({ extended: true }));
+
+// Serve uploaded images
 app.use('/uploads', express.static(path.join(__dirname, 'uploads')));
 
-// ================= ROOT ROUTE (FIX) =================
+/* ================= ROOT ROUTE ================= */
 app.get('/', (req, res) => {
   res.send('🚀 Tractor Tracker Backend is Running Successfully!');
 });
 
-// ================= ENV VARIABLES =================
-const MONGO_URI = process.env.MONGO_URI;   // ❌ removed hardcoded value
-const JWT_SECRET = process.env.JWT_SECRET || "secret123";
+/* ================= ENV VARIABLES ================= */
+const MONGO_URI = process.env.MONGO_URI;
+const JWT_SECRET = process.env.JWT_SECRET || 'secret123';
 
-// ================= MONGODB =================
-mongoose.connect(MONGO_URI)
-  .then(() => console.log('MongoDB connected'))
-  .catch(err => console.error('MongoDB connect error', err));
+if (!MONGO_URI) {
+  console.error('❌ MONGO_URI is missing in .env file');
+  process.exit(1);
+}
 
-// ================= MODELS =================
+/* ================= MONGODB CONNECTION ================= */
+mongoose
+  .connect(MONGO_URI)
+  .then(() => console.log('✅ MongoDB connected'))
+  .catch(err => {
+    console.error('❌ MongoDB connection error:', err.message);
+    process.exit(1);
+  });
+
+/* ================= MODELS ================= */
 const Admin = require('./models/Admin');
 
-// ================= ROUTES =================
+/* ================= ROUTES ================= */
 app.use('/api/auth', require('./routes/auth'));
 app.use('/api/admin', require('./routes/admin'));
 app.use('/api/farmer', require('./routes/farmer'));
 app.use('/api/work', require('./routes/work'));
 
-// ================= SERVER =================
-const PORT = process.env.PORT || 10000;
-app.listen(PORT, () => console.log(`Server running on port ${PORT}`));
+/* ================= 404 HANDLER ================= */
+app.use((req, res) => {
+  res.status(404).json({ error: 'Route not found' });
+});
 
-// ================= DEFAULT ADMIN =================
+/* ================= SERVER ================= */
+const PORT = process.env.PORT || 10000;
+app.listen(PORT, () => {
+  console.log(`🚀 Server running on port ${PORT}`);
+});
+
+/* ================= CREATE DEFAULT ADMIN ================= */
 (async () => {
   try {
     const count = await Admin.countDocuments();
     if (count === 0) {
-      const a = new Admin({
+      const admin = new Admin({
         username: 'admin',
         password: 'admin123'
       });
-      await a.save();
-      console.log('Created default admin -> username: admin password: admin123');
+      await admin.save();
+      console.log('✅ Default admin created');
+      console.log('👉 username: admin');
+      console.log('👉 password: admin123');
     }
-  } catch (e) {
-    console.error(e);
+  } catch (err) {
+    console.error('❌ Default admin creation failed:', err.message);
   }
 })();
