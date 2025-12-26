@@ -41,16 +41,10 @@ const FarmerSchema = new mongoose.Schema(
       default: null
     },
 
-    /* 🔹 PAYMENT HISTORY */
+    // ✅ SINGLE SOURCE OF TRUTH FOR PAYMENTS
     payments: {
       type: [PaymentSchema],
       default: []
-    },
-
-    /* 🔹 STORED TOTAL (IMPORTANT) */
-    totalPaid: {
-      type: Number,
-      default: 0
     }
   },
   {
@@ -71,16 +65,23 @@ FarmerSchema.methods.comparePassword = function (password) {
   return bcrypt.compare(password, this.password);
 };
 
-/* ================= VIRTUAL: CALCULATED BALANCE ================= */
-/*
-  balance = total work amount - totalPaid
-  (frontend can compute total work separately)
-*/
-FarmerSchema.virtual('balance').get(function () {
-  return 0 - this.totalPaid; // work total added separately
+/* ================= VIRTUAL: TOTAL PAID ================= */
+FarmerSchema.virtual('totalPaid').get(function () {
+  if (!this.payments || this.payments.length === 0) return 0;
+  return this.payments.reduce((sum, p) => sum + (p.amount || 0), 0);
 });
 
-/* ================= TO JSON SETTINGS ================= */
+/* ================= VIRTUAL: BALANCE ================= */
+/*
+  Balance logic:
+  balance = totalPaid (negative means farmer paid that much)
+  Work totals are calculated separately from Work collection
+*/
+FarmerSchema.virtual('balance').get(function () {
+  return this.totalPaid * -1;
+});
+
+/* ================= JSON SETTINGS ================= */
 FarmerSchema.set('toJSON', {
   virtuals: true,
   transform: function (doc, ret) {
