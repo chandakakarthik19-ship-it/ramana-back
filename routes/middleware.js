@@ -1,4 +1,5 @@
 const jwt = require('jsonwebtoken');
+
 const JWT_SECRET = process.env.JWT_SECRET || "secret123";
 
 /* ================= ADMIN AUTH ================= */
@@ -17,14 +18,19 @@ function authAdmin(req, res, next) {
       return res.status(403).json({ error: 'Admin only' });
     }
 
-    req.user = { id: decoded.id, role: 'admin' };
+    // ✅ Standardized user object
+    req.user = {
+      id: decoded.id,
+      role: 'admin'
+    };
+
     next();
   } catch (err) {
-    return res.status(401).json({ error: 'Invalid token' });
+    return res.status(401).json({ error: 'Invalid or expired token' });
   }
 }
 
-/* ================= FARMER AUTH (🔥 CRITICAL FIX) ================= */
+/* ================= FARMER AUTH ================= */
 function authFarmer(req, res, next) {
   const auth = req.headers.authorization;
   if (!auth) {
@@ -40,13 +46,15 @@ function authFarmer(req, res, next) {
       return res.status(403).json({ error: 'Farmer only' });
     }
 
-    // 🔴 THIS LINE FIXES YOUR ISSUE
-    // Farmer dashboard uses req.user.id
-    req.user = { id: decoded.id, role: 'farmer' };
+    // ✅ REQUIRED for farmer dashboard
+    req.user = {
+      id: decoded.id,
+      role: 'farmer'
+    };
 
     next();
   } catch (err) {
-    return res.status(401).json({ error: 'Invalid token' });
+    return res.status(401).json({ error: 'Invalid or expired token' });
   }
 }
 
