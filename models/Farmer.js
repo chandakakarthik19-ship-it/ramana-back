@@ -45,6 +45,12 @@ const FarmerSchema = new mongoose.Schema(
     payments: {
       type: [PaymentSchema],
       default: []
+    },
+
+    /* 🔹 STORED TOTAL (IMPORTANT) */
+    totalPaid: {
+      type: Number,
+      default: 0
     }
   },
   {
@@ -54,8 +60,9 @@ const FarmerSchema = new mongoose.Schema(
 
 /* ================= HASH PASSWORD ================= */
 FarmerSchema.pre('save', async function (next) {
-  if (!this.isModified('password')) return next();
-  this.password = await bcrypt.hash(this.password, 10);
+  if (this.isModified('password')) {
+    this.password = await bcrypt.hash(this.password, 10);
+  }
   next();
 });
 
@@ -64,10 +71,13 @@ FarmerSchema.methods.comparePassword = function (password) {
   return bcrypt.compare(password, this.password);
 };
 
-/* ================= VIRTUAL: TOTAL PAID ================= */
-FarmerSchema.virtual('totalPaid').get(function () {
-  if (!this.payments) return 0;
-  return this.payments.reduce((sum, p) => sum + (p.amount || 0), 0);
+/* ================= VIRTUAL: CALCULATED BALANCE ================= */
+/*
+  balance = total work amount - totalPaid
+  (frontend can compute total work separately)
+*/
+FarmerSchema.virtual('balance').get(function () {
+  return 0 - this.totalPaid; // work total added separately
 });
 
 /* ================= TO JSON SETTINGS ================= */
