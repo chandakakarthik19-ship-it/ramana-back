@@ -13,7 +13,8 @@ const PaymentSchema = new mongoose.Schema({
   },
   workId: {
     type: mongoose.Schema.Types.ObjectId,
-    ref: 'Work'
+    ref: 'Work',
+    default: null
   }
 });
 
@@ -36,12 +37,18 @@ const FarmerSchema = new mongoose.Schema(
       required: true
     },
     profileImage: {
-      type: String
+      type: String,
+      default: null
     },
-    payments: [PaymentSchema]
+
+    /* 🔹 PAYMENT HISTORY */
+    payments: {
+      type: [PaymentSchema],
+      default: []
+    }
   },
   {
-    timestamps: true // adds createdAt & updatedAt automatically
+    timestamps: true
   }
 );
 
@@ -56,5 +63,20 @@ FarmerSchema.pre('save', async function (next) {
 FarmerSchema.methods.comparePassword = function (password) {
   return bcrypt.compare(password, this.password);
 };
+
+/* ================= VIRTUAL: TOTAL PAID ================= */
+FarmerSchema.virtual('totalPaid').get(function () {
+  if (!this.payments) return 0;
+  return this.payments.reduce((sum, p) => sum + (p.amount || 0), 0);
+});
+
+/* ================= TO JSON SETTINGS ================= */
+FarmerSchema.set('toJSON', {
+  virtuals: true,
+  transform: function (doc, ret) {
+    delete ret.password; // 🔐 never expose password
+    return ret;
+  }
+});
 
 module.exports = mongoose.model('Farmer', FarmerSchema);
