@@ -26,12 +26,18 @@ router.post('/admin/login', async (req, res) => {
     }
 
     const token = jwt.sign(
-      { id: admin._id, role: 'admin' },
+      {
+        id: admin._id,
+        role: 'admin'
+      },
       JWT_SECRET,
       { expiresIn: '12h' }
     );
 
-    res.json({ token });
+    res.json({
+      success: true,
+      token
+    });
   } catch (err) {
     res.status(500).json({ error: 'Server error' });
   }
@@ -57,12 +63,16 @@ router.post('/farmer/login', async (req, res) => {
     }
 
     const token = jwt.sign(
-      { id: farmer._id, role: 'farmer' },
+      {
+        id: farmer._id,
+        role: 'farmer'
+      },
       JWT_SECRET,
       { expiresIn: '7d' }
     );
 
     res.json({
+      success: true,
       token,
       farmerId: farmer._id,
       name: farmer.name
