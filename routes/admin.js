@@ -7,14 +7,15 @@ const Admin = require('../models/Admin');
 const Farmer = require('../models/Farmer');
 const Work = require('../models/Work');
 
-/* ================= AUTH MIDDLEWARE (FIXED PATH) ================= */
+/* ================= AUTH MIDDLEWARE ================= */
 const { authAdmin } = require('../middleware/auth');
 
+/* ================= FILE UPLOAD ================= */
 const upload = multer({ dest: 'uploads/' });
 
-/* =========================================================
+/* =====================================================
    CHANGE ADMIN PASSWORD
-========================================================= */
+===================================================== */
 router.post('/change-password', authAdmin, async (req, res) => {
   try {
     const { oldPassword, newPassword } = req.body;
@@ -33,7 +34,7 @@ router.post('/change-password', authAdmin, async (req, res) => {
       return res.status(401).json({ error: 'Old password incorrect' });
     }
 
-    admin.password = newPassword; // hashed by model hook
+    admin.password = newPassword; // hashed by pre-save hook
     await admin.save();
 
     res.json({ success: true });
@@ -42,9 +43,9 @@ router.post('/change-password', authAdmin, async (req, res) => {
   }
 });
 
-/* =========================================================
+/* =====================================================
    CREATE FARMER
-========================================================= */
+===================================================== */
 router.post('/farmers', authAdmin, upload.single('profile'), async (req, res) => {
   try {
     const { name, phone, password } = req.body;
@@ -66,16 +67,15 @@ router.post('/farmers', authAdmin, upload.single('profile'), async (req, res) =>
     });
 
     await farmer.save();
-
     res.json({ success: true, farmer });
   } catch (err) {
     res.status(500).json({ error: err.message });
   }
 });
 
-/* =========================================================
+/* =====================================================
    LIST FARMERS (MANAGE FARMER)
-========================================================= */
+===================================================== */
 router.get('/farmers', authAdmin, async (req, res) => {
   try {
     const farmers = await Farmer.find()
@@ -88,9 +88,9 @@ router.get('/farmers', authAdmin, async (req, res) => {
   }
 });
 
-/* =========================================================
+/* =====================================================
    DELETE FARMER + ALL WORKS
-========================================================= */
+===================================================== */
 router.delete('/farmers/:id', authAdmin, async (req, res) => {
   try {
     await Farmer.findByIdAndDelete(req.params.id);
@@ -102,9 +102,9 @@ router.delete('/farmers/:id', authAdmin, async (req, res) => {
   }
 });
 
-/* =========================================================
+/* =====================================================
    ADD WORK
-========================================================= */
+===================================================== */
 router.post('/work', authAdmin, async (req, res) => {
   try {
     let { farmerId, workType, minutes, ratePer60 } = req.body;
@@ -134,9 +134,9 @@ router.post('/work', authAdmin, async (req, res) => {
   }
 });
 
-/* =========================================================
-   UPDATE WORK (🔥 THIS FIXES EDIT WORK ISSUE)
-========================================================= */
+/* =====================================================
+   UPDATE WORK (EDIT WORK)
+===================================================== */
 router.put('/work/:id', authAdmin, async (req, res) => {
   try {
     const { workType, minutes, ratePer60 } = req.body;
@@ -158,9 +158,9 @@ router.put('/work/:id', authAdmin, async (req, res) => {
   }
 });
 
-/* =========================================================
+/* =====================================================
    LIST WORK HISTORY
-========================================================= */
+===================================================== */
 router.get('/work', authAdmin, async (req, res) => {
   try {
     const filter = {};
@@ -178,9 +178,9 @@ router.get('/work', authAdmin, async (req, res) => {
   }
 });
 
-/* =========================================================
+/* =====================================================
    DELETE WORK
-========================================================= */
+===================================================== */
 router.delete('/work/:id', authAdmin, async (req, res) => {
   try {
     await Work.findByIdAndDelete(req.params.id);
@@ -190,9 +190,9 @@ router.delete('/work/:id', authAdmin, async (req, res) => {
   }
 });
 
-/* =========================================================
-   ADD PAYMENT (🔥 STORES IN FARMER DATABASE)
-========================================================= */
+/* =====================================================
+   ADD PAYMENT (STORED IN FARMER DATABASE)
+===================================================== */
 router.post('/payment/:farmerId', authAdmin, async (req, res) => {
   try {
     const { amount, workId } = req.body;
@@ -214,6 +214,7 @@ router.post('/payment/:farmerId', authAdmin, async (req, res) => {
 
     await farmer.save();
 
+    // Optional: link payment to work
     if (workId) {
       await Work.findByIdAndUpdate(workId, {
         $inc: { paymentGiven: payAmt }
