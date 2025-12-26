@@ -2,10 +2,13 @@ const express = require('express');
 const router = express.Router();
 const multer = require('multer');
 
+/* ================= MODELS ================= */
 const Admin = require('../models/Admin');
 const Farmer = require('../models/Farmer');
 const Work = require('../models/Work');
-const { authAdmin } = require('./middleware');
+
+/* ================= AUTH MIDDLEWARE (FIXED PATH) ================= */
+const { authAdmin } = require('../middleware/auth');
 
 const upload = multer({ dest: 'uploads/' });
 
@@ -30,7 +33,7 @@ router.post('/change-password', authAdmin, async (req, res) => {
       return res.status(401).json({ error: 'Old password incorrect' });
     }
 
-    admin.password = newPassword; // hashed by pre-save hook
+    admin.password = newPassword; // hashed by model hook
     await admin.save();
 
     res.json({ success: true });
@@ -45,6 +48,7 @@ router.post('/change-password', authAdmin, async (req, res) => {
 router.post('/farmers', authAdmin, upload.single('profile'), async (req, res) => {
   try {
     const { name, phone, password } = req.body;
+
     if (!name || !phone || !password) {
       return res.status(400).json({ error: 'Missing fields' });
     }
@@ -70,7 +74,7 @@ router.post('/farmers', authAdmin, upload.single('profile'), async (req, res) =>
 });
 
 /* =========================================================
-   LIST FARMERS (FOR MANAGE FARMER DROPDOWN)
+   LIST FARMERS (MANAGE FARMER)
 ========================================================= */
 router.get('/farmers', authAdmin, async (req, res) => {
   try {
@@ -78,17 +82,14 @@ router.get('/farmers', authAdmin, async (req, res) => {
       .select('-password')
       .sort({ createdAt: -1 });
 
-    res.json({
-      success: true,
-      farmers
-    });
+    res.json({ success: true, farmers });
   } catch (err) {
     res.status(500).json({ error: err.message });
   }
 });
 
 /* =========================================================
-   DELETE FARMER
+   DELETE FARMER + ALL WORKS
 ========================================================= */
 router.delete('/farmers/:id', authAdmin, async (req, res) => {
   try {
@@ -127,7 +128,30 @@ router.post('/work', authAdmin, async (req, res) => {
     });
 
     await work.save();
+    res.json({ success: true, work });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
 
+/* =========================================================
+   UPDATE WORK (🔥 THIS FIXES EDIT WORK ISSUE)
+========================================================= */
+router.put('/work/:id', authAdmin, async (req, res) => {
+  try {
+    const { workType, minutes, ratePer60 } = req.body;
+
+    const work = await Work.findById(req.params.id);
+    if (!work) {
+      return res.status(404).json({ error: 'Work not found' });
+    }
+
+    work.workType = workType;
+    work.minutes = Number(minutes);
+    work.ratePer60 = Number(ratePer60);
+    work.totalAmount = (work.minutes / 60) * work.ratePer60;
+
+    await work.save();
     res.json({ success: true, work });
   } catch (err) {
     res.status(500).json({ error: err.message });
@@ -148,10 +172,7 @@ router.get('/work', authAdmin, async (req, res) => {
       .populate('farmer', 'name phone')
       .sort({ date: -1 });
 
-    res.json({
-      success: true,
-      works
-    });
+    res.json({ success: true, works });
   } catch (err) {
     res.status(500).json({ error: err.message });
   }
@@ -170,7 +191,7 @@ router.delete('/work/:id', authAdmin, async (req, res) => {
 });
 
 /* =========================================================
-   ADD PAYMENT (CRITICAL – STORES IN MONGODB)
+   ADD PAYMENT (🔥 STORES IN FARMER DATABASE)
 ========================================================= */
 router.post('/payment/:farmerId', authAdmin, async (req, res) => {
   try {
@@ -186,18 +207,13 @@ router.post('/payment/:farmerId', authAdmin, async (req, res) => {
       return res.status(404).json({ error: 'Farmer not found' });
     }
 
-    // Store payment
     farmer.payments.push({
       amount: payAmt,
       workId: workId || null
     });
 
-    // 🔥 Persist total paid
-    farmer.totalPaid += payAmt;
-
     await farmer.save();
 
-    // Update work payment if linked
     if (workId) {
       await Work.findByIdAndUpdate(workId, {
         $inc: { paymentGiven: payAmt }
