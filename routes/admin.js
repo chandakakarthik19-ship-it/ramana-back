@@ -34,12 +34,35 @@ router.post('/change-password', authAdmin, async (req, res) => {
       return res.status(401).json({ error: 'Old password incorrect' });
     }
 
-    admin.password = newPassword; // hashed by pre-save hook
+    admin.password = newPassword;
     await admin.save();
 
     res.json({ success: true });
   } catch (err) {
     res.status(500).json({ error: err.message });
+  }
+});
+
+/* =====================================================
+   VERIFY ADMIN PASSWORD (🔥 NEW – REQUIRED)
+===================================================== */
+router.post('/verify-password', authAdmin, async (req, res) => {
+  try {
+    const { password } = req.body;
+
+    if (!password) {
+      return res.json({ success: false });
+    }
+
+    const admin = await Admin.findById(req.user.id);
+    if (!admin) {
+      return res.json({ success: false });
+    }
+
+    const ok = await admin.comparePassword(password);
+    res.json({ success: ok });
+  } catch (err) {
+    res.status(500).json({ success: false });
   }
 });
 
@@ -191,7 +214,7 @@ router.delete('/work/:id', authAdmin, async (req, res) => {
 });
 
 /* =====================================================
-   ADD PAYMENT (STORED IN FARMER DATABASE)
+   ADD PAYMENT
 ===================================================== */
 router.post('/payment/:farmerId', authAdmin, async (req, res) => {
   try {
@@ -214,13 +237,35 @@ router.post('/payment/:farmerId', authAdmin, async (req, res) => {
 
     await farmer.save();
 
-    // Optional: link payment to work
     if (workId) {
       await Work.findByIdAndUpdate(workId, {
         $inc: { paymentGiven: payAmt }
       });
     }
 
+    res.json({ success: true });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+/* =====================================================
+   DELETE PAYMENT (🔥 NEW – REQUIRED)
+===================================================== */
+router.delete('/payment/:farmerId/:paymentId', authAdmin, async (req, res) => {
+  try {
+    const { farmerId, paymentId } = req.params;
+
+    const farmer = await Farmer.findById(farmerId);
+    if (!farmer) {
+      return res.status(404).json({ error: 'Farmer not found' });
+    }
+
+    farmer.payments = farmer.payments.filter(
+      p => p._id.toString() !== paymentId
+    );
+
+    await farmer.save();
     res.json({ success: true });
   } catch (err) {
     res.status(500).json({ error: err.message });
