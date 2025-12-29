@@ -8,7 +8,7 @@ const Farmer = require('../models/Farmer');
 const Work = require('../models/Work');
 
 /* ================= AUTH MIDDLEWARE ================= */
-const { authAdmin } = require('../middleware/auth');
+const { authAdmin } = require('../middleware');
 
 /* ================= FILE UPLOAD ================= */
 const upload = multer({ dest: 'uploads/' });
