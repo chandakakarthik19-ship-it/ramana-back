@@ -2,7 +2,9 @@ const express = require('express');
 const router = express.Router();
 const Work = require('../models/Work');
 const Farmer = require('../models/Farmer');
-const { authAdmin, authFarmer } = require('./middleware');
+
+/* 🔥 FIXED PATH */
+const { authAdmin, authFarmer } = require('../middleware');
 
 /* ================= ADD WORK (ADMIN ONLY) ================= */
 router.post('/add', authAdmin, async (req, res) => {
@@ -40,7 +42,6 @@ router.post('/add', authAdmin, async (req, res) => {
 /* ================= FARMER WORK HISTORY (FARMER ONLY) ================= */
 router.get('/my', authFarmer, async (req, res) => {
   try {
-    // 🔴 CRITICAL: req.user.id comes from authFarmer middleware
     const works = await Work.find({ farmer: req.user.id })
       .sort({ date: -1 });
 
