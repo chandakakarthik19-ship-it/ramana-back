@@ -2,11 +2,11 @@ const express = require('express');
 const router = express.Router();
 const Work = require('../models/Work');
 const Farmer = require('../models/Farmer');
-
-/* 🔥 FIXED PATH */
 const { authAdmin, authFarmer } = require('../middleware');
 
-/* ================= ADD WORK (ADMIN ONLY) ================= */
+/* =====================================================
+   ADD WORK (ADMIN ONLY)
+===================================================== */
 router.post('/add', authAdmin, async (req, res) => {
   try {
     const { farmerId, workType, minutes, ratePer60, date } = req.body;
@@ -15,7 +15,7 @@ router.post('/add', authAdmin, async (req, res) => {
       return res.status(400).json({ error: 'All fields are required' });
     }
 
-    const totalAmount = (minutes / 60) * Number(ratePer60);
+    const totalAmount = (Number(minutes) / 60) * Number(ratePer60);
 
     const work = new Work({
       farmer: farmerId,
@@ -39,7 +39,39 @@ router.post('/add', authAdmin, async (req, res) => {
   }
 });
 
-/* ================= FARMER WORK HISTORY (FARMER ONLY) ================= */
+/* =====================================================
+   UPDATE WORK (🔥 FIX – ADMIN ONLY)
+===================================================== */
+router.put('/:id', authAdmin, async (req, res) => {
+  try {
+    const { workType, minutes, ratePer60 } = req.body;
+
+    const work = await Work.findById(req.params.id);
+    if (!work) {
+      return res.status(404).json({ error: 'Work not found' });
+    }
+
+    work.workType = workType;
+    work.minutes = Number(minutes);
+    work.ratePer60 = Number(ratePer60);
+    work.totalAmount = (Number(minutes) / 60) * Number(ratePer60);
+
+    await work.save();
+
+    res.json({
+      success: true,
+      message: 'Work updated successfully',
+      work
+    });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: 'Server error' });
+  }
+});
+
+/* =====================================================
+   FARMER WORK HISTORY (FARMER ONLY)
+===================================================== */
 router.get('/my', authFarmer, async (req, res) => {
   try {
     const works = await Work.find({ farmer: req.user.id })
@@ -55,10 +87,18 @@ router.get('/my', authFarmer, async (req, res) => {
   }
 });
 
-/* ================= ADMIN VIEW ALL WORK ================= */
+/* =====================================================
+   ADMIN VIEW WORKS
+   (supports ?farmerId=xxxx)
+===================================================== */
 router.get('/', authAdmin, async (req, res) => {
   try {
-    const works = await Work.find()
+    const filter = {};
+    if (req.query.farmerId) {
+      filter.farmer = req.query.farmerId;
+    }
+
+    const works = await Work.find(filter)
       .populate('farmer', 'name phone')
       .sort({ date: -1 });
 
@@ -72,7 +112,9 @@ router.get('/', authAdmin, async (req, res) => {
   }
 });
 
-/* ================= ADMIN DELETE WORK ================= */
+/* =====================================================
+   DELETE WORK (ADMIN ONLY)
+===================================================== */
 router.delete('/:id', authAdmin, async (req, res) => {
   try {
     await Work.findByIdAndDelete(req.params.id);
