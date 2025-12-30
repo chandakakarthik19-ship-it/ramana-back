@@ -1,6 +1,7 @@
 const express = require('express');
 const router = express.Router();
 const jwt = require('jsonwebtoken');
+
 const Admin = require('../models/Admin');
 const Farmer = require('../models/Farmer');
 
@@ -26,18 +27,12 @@ router.post('/admin/login', async (req, res) => {
     }
 
     const token = jwt.sign(
-      {
-        id: admin._id,
-        role: 'admin'
-      },
+      { id: admin._id, role: 'admin' },
       JWT_SECRET,
       { expiresIn: '12h' }
     );
 
-    res.json({
-      success: true,
-      token
-    });
+    res.json({ success: true, token });
   } catch (err) {
     res.status(500).json({ error: 'Server error' });
   }
@@ -63,10 +58,7 @@ router.post('/farmer/login', async (req, res) => {
     }
 
     const token = jwt.sign(
-      {
-        id: farmer._id,
-        role: 'farmer'
-      },
+      { id: farmer._id, role: 'farmer' },
       JWT_SECRET,
       { expiresIn: '7d' }
     );
@@ -79,6 +71,46 @@ router.post('/farmer/login', async (req, res) => {
     });
   } catch (err) {
     res.status(500).json({ error: err.message });
+  }
+});
+
+/* ================= FORGOT PASSWORD (ADMIN PASSWORD REQUIRED) ================= */
+router.post('/farmer/forgot-password', async (req, res) => {
+  try {
+    const { phone, newPassword, adminPassword } = req.body;
+
+    if (!phone || !newPassword || !adminPassword) {
+      return res.status(400).json({ error: 'All fields are required' });
+    }
+
+    // 🔐 Verify Admin Password
+    const admin = await Admin.findOne({});
+    if (!admin) {
+      return res.status(404).json({ error: 'Admin not found' });
+    }
+
+    const adminOk = await admin.comparePassword(adminPassword);
+    if (!adminOk) {
+      return res.status(401).json({ error: 'Invalid admin password' });
+    }
+
+    // 👨‍🌾 Find Farmer
+    const farmer = await Farmer.findOne({ phone });
+    if (!farmer) {
+      return res.status(404).json({ error: 'Farmer not found' });
+    }
+
+    // 🔄 Update Farmer Password
+    farmer.password = newPassword;
+    await farmer.save();
+
+    res.json({
+      success: true,
+      message: 'Farmer password changed successfully'
+    });
+
+  } catch (err) {
+    res.status(500).json({ error: 'Server error' });
   }
 });
 
