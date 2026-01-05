@@ -8,12 +8,22 @@ require('dotenv').config();
 const app = express();
 
 /* ================= MIDDLEWARE ================= */
-app.use(cors());
+app.use(cors({
+  origin: "*", // allow Vercel frontend
+  methods: ["GET", "POST", "PUT", "DELETE"],
+  credentials: true
+}));
+
 app.use(bodyParser.json());
 app.use(bodyParser.urlencoded({ extended: true }));
 
 // Serve uploaded images
 app.use('/uploads', express.static(path.join(__dirname, 'uploads')));
+
+/* ================= PING ROUTE (KEEP ALIVE) ================= */
+app.get('/ping', (req, res) => {
+  res.status(200).send('✅ Server is awake');
+});
 
 /* ================= ROOT ROUTE ================= */
 app.get('/', (req, res) => {
